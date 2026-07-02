@@ -11,27 +11,14 @@ import re
 import traceback
 from pathlib import Path
 
-import boto3
-import jsonschema
-from botocore.config import Config
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-# Fail fast rather than let botocore's default retry/backoff burn through
-# whatever request timeout the platform enforces before we can return our
-# own clean error response.
-_SPACES_CLIENT_CONFIG = Config(
-    connect_timeout=3,
-    read_timeout=4,
-    retries={"max_attempts": 1},
-)
-
+# Heavy third-party imports (boto3 in particular) are deferred into _init()/
+# _spaces_client() rather than done at module level. Cold-start import time
+# counts against the request's execution budget just like any other code,
+# and boto3's import alone can be a large fraction of a serverless cold
+# start — deferring it means a request that never needs Spaces (or fails
+# validation before reaching it) doesn't pay that cost.
 _HERE = Path(__file__).parent
 
-# Lazily initialized on first use, not at import time: if the deployed
-# package layout ever doesn't include these files, we want that surfaced
-# as a normal 500 response from main()'s exception handler, not a bare
-# import-time crash that the platform reports as an opaque gateway error
-# with zero detail (and no chance for us to log/return anything useful).
 _VALIDATOR = None
 _JINJA_ENV = None
 
@@ -40,6 +27,9 @@ def _init():
     global _VALIDATOR, _JINJA_ENV
     if _VALIDATOR is not None:
         return
+    import jsonschema
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+
     schema = json.loads((_HERE / "snapshot.schema.json").read_text())
     _VALIDATOR = jsonschema.Draft202012Validator(schema)
     _JINJA_ENV = Environment(
@@ -74,13 +64,20 @@ def _error(status_code, message):
 
 
 def _spaces_client():
+    import boto3
+    from botocore.config import Config
+
+    # Fail fast rather than let botocore's default retry/backoff burn
+    # through whatever request timeout the platform enforces before we can
+    # return our own clean error response.
+    config = Config(connect_timeout=3, read_timeout=4, retries={"max_attempts": 1})
     return boto3.client(
         "s3",
         endpoint_url=os.environ["SPACES_ENDPOINT"],
         region_name=os.environ.get("SPACES_REGION", "sfo3"),
         aws_access_key_id=os.environ["SPACES_KEY"],
         aws_secret_access_key=os.environ["SPACES_SECRET"],
-        config=_SPACES_CLIENT_CONFIG,
+        config=config,
     )
 
 
@@ -132,10 +129,6 @@ def main(args):
     method = args.get("http", {}).get("method") or args.get("__ow_method", "post")
     if method.lower() == "options":
         return _response(200, {})
-
-    # TEMPORARY DEBUG — remove before merging. Proves whether POST reaches
-    # this code at all and reveals the real shape of `args`.
-    return _response(200, {"debug_args": {k: str(v)[:80] for k, v in args.items()}})
 
     body = args.get("http", {}).get("body")
     if body is not None:
