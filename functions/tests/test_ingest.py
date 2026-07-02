@@ -99,6 +99,20 @@ def test_options_request_returns_cors_headers(ingest):
     assert "POST" in result["headers"]["Access-Control-Allow-Methods"]
 
 
+def test_main_returns_clean_500_on_unexpected_error(ingest, minimal_payload, monkeypatch):
+    def _boom(*args, **kwargs):
+        raise RuntimeError("Spaces is unreachable")
+
+    monkeypatch.setattr(ingest, "_spaces_client", _boom)
+
+    result = ingest.main(
+        {"http": {"method": "POST", "body": json.dumps(minimal_payload)}}
+    )
+    assert result["statusCode"] == 500
+    body = json.loads(result["body"])
+    assert "RuntimeError" in body["error"]
+
+
 def test_main_parses_json_string_body(ingest, spaces_bucket, minimal_payload):
     result = ingest.main(
         {"http": {"method": "POST", "body": json.dumps(minimal_payload)}}

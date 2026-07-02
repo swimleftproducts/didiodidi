@@ -8,6 +8,7 @@ username/slug -> image URIs -> render -> PUT -> return URL.
 import json
 import os
 import re
+import traceback
 from pathlib import Path
 
 import boto3
@@ -123,5 +124,13 @@ def main(args):
         status_code, body_dict = handle_payload(payload)
     except (KeyError, TypeError) as exc:
         return _error(400, f"Malformed payload: {exc}")
+    except Exception as exc:
+        # Last resort: without this, an unexpected error (e.g. a Spaces auth
+        # failure) propagates out of main() and the platform's own gateway
+        # returns an opaque "There was an error processing your request."
+        # with no detail in the response body. Full traceback still goes to
+        # the run logs; only a generic message reaches the client.
+        traceback.print_exc()
+        return _error(500, f"Internal error: {exc.__class__.__name__}")
 
     return _response(status_code, body_dict)
