@@ -133,6 +133,10 @@ def main(args):
     if method.lower() == "options":
         return _response(200, {})
 
+    # TEMPORARY DEBUG — remove before merging. Proves whether POST reaches
+    # this code at all and reveals the real shape of `args`.
+    return _response(200, {"debug_args": {k: str(v)[:80] for k, v in args.items()}})
+
     body = args.get("http", {}).get("body")
     if body is not None:
         try:
