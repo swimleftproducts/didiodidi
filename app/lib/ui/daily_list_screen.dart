@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import '../data/database.dart';
 import '../domain/due_logic.dart';
+import '../services/notification_service.dart';
+import '../services/settings_repository.dart';
+import 'settings_screen.dart';
 import 'task_input_screen.dart';
 
 class DailyListScreen extends StatefulWidget {
   final AppDatabase db;
-  const DailyListScreen({super.key, required this.db});
+  final SettingsRepository settings;
+  final NotificationService notificationService;
+
+  const DailyListScreen({
+    super.key,
+    required this.db,
+    required this.settings,
+    required this.notificationService,
+  });
 
   @override
   State<DailyListScreen> createState() => _DailyListScreenState();
@@ -58,6 +69,19 @@ class _DailyListScreenState extends State<DailyListScreen> {
     await _load();
   }
 
+  Future<void> _navigateToSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(
+          db: widget.db,
+          settings: widget.settings,
+          notificationService: widget.notificationService,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -74,6 +98,13 @@ class _DailyListScreenState extends State<DailyListScreen> {
         title: Text(
           '${stats.completed}/${stats.total}  ·  ${isoDate(DateTime.now())}',
         ),
+        actions: [
+          IconButton(
+            key: const Key('settingsButton'),
+            icon: const Icon(Icons.settings),
+            onPressed: _navigateToSettings,
+          ),
+        ],
       ),
       body: _dueTasks.isEmpty
           ? const Center(

@@ -2,7 +2,11 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:didiodidi/data/database.dart';
+import 'package:didiodidi/services/notification_service.dart';
+import 'package:didiodidi/services/settings_repository.dart';
 import 'package:didiodidi/ui/daily_list_screen.dart';
+import 'package:didiodidi/ui/settings_screen.dart';
+import '../test_fakes.dart';
 
 AppDatabase _db() => AppDatabase(NativeDatabase.memory());
 
@@ -11,7 +15,13 @@ void main() {
   setUp(() => db = _db());
   tearDown(() => db.close());
 
-  Widget buildScreen() => MaterialApp(home: DailyListScreen(db: db));
+  Widget buildScreen() => MaterialApp(
+        home: DailyListScreen(
+          db: db,
+          settings: SettingsRepository(InMemoryKeyValueStore()),
+          notificationService: NotificationService(FakeNotificationScheduler()),
+        ),
+      );
 
   testWidgets('shows empty-state message when no tasks due today',
       (tester) async {
@@ -91,5 +101,16 @@ void main() {
     await tester.tap(find.byType(ListTile).first);
     await tester.pumpAndSettle();
     expect(find.textContaining('1/2'), findsOneWidget);
+  });
+
+  testWidgets('tapping the settings icon navigates to SettingsScreen',
+      (tester) async {
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('settingsButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
   });
 }
