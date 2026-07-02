@@ -166,6 +166,24 @@ def main(args):
                 results[name] = (
                     f"{exc.__class__.__name__}: {exc} after {time.time() - t0:.2f}s"
                 )
+
+        # All probes above are bodyless GETs. Test whether a PUT WITH A BODY
+        # specifically is what hangs (independent of boto3 entirely).
+        t0 = time.time()
+        try:
+            req = urllib.request.Request(
+                "https://sfo3.digitaloceanspaces.com/didiodidi/claude-debug-raw-put.txt",
+                data=b"raw put body test" * 100,
+                method="PUT",
+                headers={"Content-Type": "text/plain"},
+            )
+            urllib.request.urlopen(req, timeout=8)
+            results["raw_put_with_body"] = f"ok in {time.time() - t0:.2f}s"
+        except Exception as exc:
+            results["raw_put_with_body"] = (
+                f"{exc.__class__.__name__}: {exc} after {time.time() - t0:.2f}s"
+            )
+
         return _response(200, results)
 
     body = args.get("http", {}).get("body")
