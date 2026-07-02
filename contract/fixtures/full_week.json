@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "username": "alice",
+  "slug": "f2g3h4i5j6",
+  "generated_at": "2026-07-01",
+  "window": { "start": "2026-06-25", "end": "2026-07-01" },
+  "stats": { "completed": 10, "total": 21 },
+  "days": [
+    {
+      "date": "2026-06-25",
+      "weekday": 4,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": true
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": true
+        }
+      ]
+    },
+    {
+      "date": "2026-06-26",
+      "weekday": 5,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": true
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "date": "2026-06-27",
+      "weekday": 6,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": false
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "weekday": 7,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": false
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": false
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "date": "2026-06-29",
+      "weekday": 1,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": true
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "date": "2026-06-30",
+      "weekday": 2,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": false
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "date": "2026-07-01",
+      "weekday": 3,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "title": "Quad stretch",
+          "description": "3x10 each side",
+          "completed": false
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    }
+  ]
+}

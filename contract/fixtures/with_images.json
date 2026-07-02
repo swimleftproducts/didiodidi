@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "username": "bob",
+  "slug": "k2l3m4n5o6",
+  "generated_at": "2026-07-01",
+  "window": { "start": "2026-06-25", "end": "2026-07-01" },
+  "stats": { "completed": 3, "total": 4 },
+  "days": [
+    {
+      "date": "2026-06-30",
+      "weekday": 2,
+      "tasks": [
+        {
+          "id": "33333333-3333-3333-3333-333333333333",
+          "title": "Calf raises",
+          "description": "3x20, slow eccentric",
+          "completed": true,
+          "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "title": "Hip bridges",
+          "description": "3x15",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "date": "2026-07-01",
+      "weekday": 3,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true,
+          "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        },
+        {
+          "id": "33333333-3333-3333-3333-333333333333",
+          "title": "Calf raises",
+          "description": "3x20, slow eccentric",
+          "completed": true,
+          "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        }
+      ]
+    }
+  ]
+}

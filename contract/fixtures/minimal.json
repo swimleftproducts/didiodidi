@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "username": "alice",
+  "slug": "a3b4c5d6e7",
+  "generated_at": "2026-07-01",
+  "window": { "start": "2026-06-25", "end": "2026-07-01" },
+  "stats": { "completed": 1, "total": 1 },
+  "days": [
+    {
+      "date": "2026-07-01",
+      "weekday": 3,
+      "tasks": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "title": "Hamstring stretch",
+          "description": "3x10, hold 20s",
+          "completed": true
+        }
+      ]
+    }
+  ]
+}
