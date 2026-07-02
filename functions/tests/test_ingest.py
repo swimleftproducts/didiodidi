@@ -122,3 +122,16 @@ def test_main_parses_json_string_body(ingest, spaces_bucket, minimal_payload):
     assert body["url"].endswith(
         f"{minimal_payload['username']}-{minimal_payload['slug']}"
     )
+
+
+def test_main_handles_real_platform_args_shape(ingest, spaces_bucket, minimal_payload):
+    # The real App Platform Functions gateway merges the parsed JSON body's
+    # fields directly into top-level args (no http.body), but also adds its
+    # own "http" metadata key alongside them (method/headers, no body).
+    args = {**minimal_payload, "http": {"method": "POST", "headers": {}}}
+    result = ingest.main(args)
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert body["url"].endswith(
+        f"{minimal_payload['username']}-{minimal_payload['slug']}"
+    )

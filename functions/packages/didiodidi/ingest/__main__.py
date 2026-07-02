@@ -137,7 +137,13 @@ def main(args):
         except (TypeError, ValueError):
             return _error(400, "Malformed JSON body")
     else:
-        payload = {k: v for k, v in args.items() if not k.startswith("__ow_")}
+        # In practice, the platform merges the parsed JSON body's fields
+        # directly into the top-level args rather than nesting it under
+        # http.body — but it also adds an "http" key of its own (method/
+        # headers, no body) alongside them, which isn't part of our payload.
+        payload = {
+            k: v for k, v in args.items() if not k.startswith("__ow_") and k != "http"
+        }
 
     if not isinstance(payload, dict):
         return _error(400, "Malformed JSON body")
