@@ -7,7 +7,7 @@ packages:
         runtime: "python:3.12"
         web: true
         limits:
-          timeout: 10000
+          timeout: 30000
         environment:
           SPACES_KEY: "${SPACES_KEY}"
           SPACES_SECRET: "${SPACES_SECRET}"

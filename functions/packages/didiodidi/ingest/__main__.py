@@ -13,7 +13,17 @@ from pathlib import Path
 
 import boto3
 import jsonschema
+from botocore.config import Config
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+# Fail fast rather than let botocore's default retry/backoff burn through
+# whatever request timeout the platform enforces before we can return our
+# own clean error response.
+_SPACES_CLIENT_CONFIG = Config(
+    connect_timeout=3,
+    read_timeout=4,
+    retries={"max_attempts": 1},
+)
 
 _HERE = Path(__file__).parent
 
@@ -70,6 +80,7 @@ def _spaces_client():
         region_name=os.environ.get("SPACES_REGION", "sfo3"),
         aws_access_key_id=os.environ["SPACES_KEY"],
         aws_secret_access_key=os.environ["SPACES_SECRET"],
+        config=_SPACES_CLIENT_CONFIG,
     )
 
 
