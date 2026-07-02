@@ -205,11 +205,33 @@ def main(args):
 
         return _response(200, results)
 
-    if method.lower() == "post" and args.get("_debug_probe") == "1":
+    debug_probe = args.get("_debug_probe")
+    if method.lower() == "post" and debug_probe == "raw":
+        # TEMPORARY DIAGNOSTIC: raw urllib PUT (no boto3), triggered via
+        # POST -- one probe per invocation so a hang in one doesn't prevent
+        # the other from ever reporting its result.
+        import time as _time
+        import urllib.request as _urllib_request
+
+        t0 = _time.time()
+        try:
+            req = _urllib_request.Request(
+                "https://sfo3.digitaloceanspaces.com/didiodidi/claude-debug-raw-put-via-post.txt",
+                data=b"raw put via post" * 100,
+                method="PUT",
+                headers={"Content-Type": "text/plain"},
+            )
+            _urllib_request.urlopen(req, timeout=8)
+            return _response(200, {"raw_put_via_post": f"ok in {_time.time() - t0:.2f}s"})
+        except Exception as exc:
+            return _response(
+                200,
+                {"raw_put_via_post": f"{exc.__class__.__name__}: {exc} after {_time.time() - t0:.2f}s"},
+            )
+
+    if method.lower() == "post" and debug_probe == "boto3":
         # TEMPORARY DIAGNOSTIC: identical boto3 call to the one that
-        # succeeded in 1.41s via GET, but triggered via POST -- isolates
-        # whether the *incoming method itself* (not payload content) is
-        # what makes this hang.
+        # succeeded in 1.41s via GET, but triggered via POST.
         import time as _time
 
         t0 = _time.time()
@@ -225,11 +247,7 @@ def main(args):
         except Exception as exc:
             return _response(
                 200,
-                {
-                    "boto3_put_via_post": (
-                        f"{exc.__class__.__name__}: {exc} after {_time.time() - t0:.2f}s"
-                    )
-                },
+                {"boto3_put_via_post": f"{exc.__class__.__name__}: {exc} after {_time.time() - t0:.2f}s"},
             )
 
     body = args.get("http", {}).get("body")
