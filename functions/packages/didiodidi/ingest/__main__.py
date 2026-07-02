@@ -184,6 +184,25 @@ def main(args):
                 f"{exc.__class__.__name__}: {exc} after {time.time() - t0:.2f}s"
             )
 
+        # The real boto3 put_object() call, but triggered via GET instead of
+        # POST -- isolates whether the hang is about the outbound Spaces
+        # call itself, or specific to how this deployed function handles an
+        # *incoming* POST request.
+        t0 = time.time()
+        try:
+            _spaces_client().put_object(
+                Bucket=os.environ["SPACES_BUCKET"],
+                Key="claude-debug-boto3-via-get.txt",
+                Body=b"boto3 put triggered via GET",
+                ContentType="text/plain",
+                ACL="public-read",
+            )
+            results["boto3_put_via_get"] = f"ok in {time.time() - t0:.2f}s"
+        except Exception as exc:
+            results["boto3_put_via_get"] = (
+                f"{exc.__class__.__name__}: {exc} after {time.time() - t0:.2f}s"
+            )
+
         return _response(200, results)
 
     body = args.get("http", {}).get("body")
