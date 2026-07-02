@@ -8,8 +8,28 @@ username/slug -> image URIs -> render -> PUT -> return URL.
 import json
 import os
 import re
+import socket
 import traceback
 from pathlib import Path
+
+# Force IPv4-only DNS resolution for every socket-based call in this process
+# (urllib, http.client, botocore/urllib3 all resolve addresses through this).
+# Symptom that led here: even a trivial urllib GET to a bare IPv4 literal
+# (https://1.1.1.1, no DNS involved) hung for ~30s in this deployed
+# container, while local calls to the same hosts were instant — consistent
+# with an IPv6 route that's black-holed (resolves but never connects), and
+# Python's stdlib tries resolved addresses sequentially with a full timeout
+# each rather than racing them (no Happy Eyeballs), so any IPv6 address
+# ahead of a working IPv4 one in getaddrinfo's result eats a full timeout
+# before falling back.
+_original_getaddrinfo = socket.getaddrinfo
+
+
+def _ipv4_only_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    return _original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+
+
+socket.getaddrinfo = _ipv4_only_getaddrinfo
 
 # Heavy third-party imports (boto3 in particular) are deferred into _init()/
 # _spaces_client() rather than done at module level. Cold-start import time
