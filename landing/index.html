@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>didiodidi — did I or didn't I do it</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1115;
+    --fg: #e8e8ea;
+    --muted: #9a9aa2;
+    --accent: #5fd0a3;
+    --card: #171a21;
+    --border: #262b35;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 3rem;
+  }
+  h1 {
+    font-size: 2.5rem;
+    margin: 0 0 0.25rem;
+    letter-spacing: -0.02em;
+  }
+  .tagline {
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin: 0 0 2.5rem;
+  }
+  h2 {
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 2.5rem 0 1rem;
+  }
+  .steps {
+    display: grid;
+    gap: 1rem;
+  }
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.3rem;
+  }
+  .step strong { color: var(--fg); }
+  .step p { margin: 0.35rem 0 0; color: var(--muted); }
+  .download {
+    margin-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.4rem;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-weight: 600;
+  }
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>didiodidi</h1>
+  <p class="tagline">did I or didn't I do it.</p>
+
+  <p>
+    A simple, local-first tracker for recurring to-dos — built for physical-therapy
+    exercises, but works for any daily routine. No account, no cloud database:
+    everything lives on your phone.
+  </p>
+
+  <h2>How it works</h2>
+  <div class="steps">
+    <div class="step">
+      <strong>Add your routine</strong>
+      <p>Create tasks with a title, description, and which days of the week they're due — by hand, or by snapping a photo of an exercise sheet.</p>
+    </div>
+    <div class="step">
+      <strong>Check them off</strong>
+      <p>Each day, see what's due and tap to mark it done. Three gentle reminders a day keep you on track.</p>
+    </div>
+    <div class="step">
+      <strong>Share your progress</strong>
+      <p>One tap builds a snapshot of your last 7 days and gives you a link — like <code>share.didiodidi.com/you-abc123</code> — so a therapist or friend can see how you're doing.</p>
+    </div>
+  </div>
+
+  <h2>Get the app</h2>
+  <span class="download">Android app — coming soon</span>
+
+  <footer>
+    Local data stays on your device. Sharing is always a manual, one-tap action.
+  </footer>
+</main>
+</body>
+</html>
