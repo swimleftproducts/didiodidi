@@ -1,6 +1,6 @@
 # CLAUDE.md — didiodidi
 
-> **didiodidi** = "did I or didn't I do it." A local-first Flutter app for tracking a
+> **didiodidi** = "did I do it or didn't I do it." A local-first Flutter app for tracking a
 > recurring to-do list (built for physical-therapy exercises), with a one-tap **share**
 > that publishes a static, read-only web snapshot of the last 7 days.
 
