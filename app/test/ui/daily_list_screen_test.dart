@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:didiodidi/data/database.dart';
 import 'package:didiodidi/services/notification_service.dart';
 import 'package:didiodidi/services/settings_repository.dart';
+import 'package:didiodidi/ui/all_tasks_screen.dart';
 import 'package:didiodidi/ui/daily_list_screen.dart';
 import 'package:didiodidi/ui/settings_screen.dart';
+import 'package:didiodidi/ui/task_input_screen.dart';
 import '../test_fakes.dart';
 
 AppDatabase _db() => AppDatabase(NativeDatabase.memory());
@@ -112,5 +114,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('tapping the edit icon navigates to TaskInputScreen',
+      (tester) async {
+    final id = await db.taskDao.insertTask(
+      title: 'Hip bridges',
+      description: '',
+      weekdays: [DateTime.now().weekday],
+    );
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(Key('editButton_$id')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskInputScreen), findsOneWidget);
+  });
+
+  testWidgets('tapping the all-tasks icon navigates to AllTasksScreen',
+      (tester) async {
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('allTasksButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AllTasksScreen), findsOneWidget);
   });
 }

@@ -7,6 +7,8 @@ class Tasks extends Table {
   BoolColumn get active => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime()();
   TextColumn get imagePath => text().nullable()();
+  // YYYY-MM-DD; null = repeats weekly forever, set = stops being due after this date.
+  TextColumn get endDate => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

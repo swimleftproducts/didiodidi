@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Without this, reminders use inexactAllowWhileIdle, which Android may
+         delay delivery of by up to an hour (observed via dumpsys alarm) —
+         far too imprecise for "morning/midday/evening at a specific time". -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
         android:label="didiodidi"
         android:name="${applicationName}"

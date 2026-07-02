@@ -25,10 +25,11 @@ class NotificationService {
   Future<void> rescheduleAll({
     required AppDatabase db,
     required SettingsRepository settings,
+    DateTime? now,
   }) async {
-    final now = DateTime.now();
+    now ??= DateTime.now();
     final today = isoDate(now);
-    final dueTasks = await db.taskDao.getTasksDueOn(now.weekday);
+    final dueTasks = await db.taskDao.getTasksDueOn(now.weekday, today: today);
     final completions = await db.completionDao.getCompletionsForDate(today);
     final completedIds = completions.map((c) => c.taskId).toSet();
     final incompleteTitles = dueTasks
@@ -41,27 +42,42 @@ class NotificationService {
     final middayTime = await settings.getMiddayTime();
     final eveningTime = await settings.getEveningTime();
 
-    await _scheduler.cancel(morningId);
-    await _scheduler.cancel(middayId);
-    await _scheduler.cancel(eveningId);
-
-    await _scheduler.zonedSchedule(
+    await _rescheduleOne(
       id: morningId,
       title: "Today's exercises",
       body: morningMessage(dueTitles),
       scheduledDate: nextInstanceOfTime(now, morningTime.hour, morningTime.minute),
     );
-    await _scheduler.zonedSchedule(
+    await _rescheduleOne(
       id: middayId,
       title: 'Midday check-in',
       body: incompleteMessage(incompleteTitles),
       scheduledDate: nextInstanceOfTime(now, middayTime.hour, middayTime.minute),
     );
-    await _scheduler.zonedSchedule(
+    await _rescheduleOne(
       id: eveningId,
       title: 'Evening check-in',
       body: incompleteMessage(incompleteTitles),
       scheduledDate: nextInstanceOfTime(now, eveningTime.hour, eveningTime.minute),
+    );
+  }
+
+  // A null scheduledDate means today's occurrence is within the grace
+  // window (see reminder_schedule.dart) — leave the existing alarm alone
+  // instead of cancelling a still-pending, not-yet-delivered one.
+  Future<void> _rescheduleOne({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime? scheduledDate,
+  }) async {
+    if (scheduledDate == null) return;
+    await _scheduler.cancel(id);
+    await _scheduler.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate,
     );
   }
 }

@@ -17,6 +17,10 @@ void main() {
   const middayId = 2;
   const eveningId = 3;
 
+  // Fixed clock, well clear of any default reminder time's grace window,
+  // so tests don't flake depending on when they happen to run for real.
+  final now = DateTime(2026, 7, 1, 6, 0);
+
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     scheduler = FakeNotificationScheduler();
@@ -27,21 +31,21 @@ void main() {
   tearDown(() => db.close());
 
   test('cancels all three notifications before rescheduling', () async {
-    await service.rescheduleAll(db: db, settings: settings);
+    await service.rescheduleAll(db: db, settings: settings, now: now);
     expect(scheduler.cancelled, containsAll([morningId, middayId, eveningId]));
   });
 
   test('morning message lists all tasks due today regardless of completion',
       () async {
-    final weekday = DateTime.now().weekday;
+    final weekday = now.weekday;
     final id = await db.taskDao.insertTask(
       title: 'Hamstring stretch',
       description: '',
       weekdays: [weekday],
     );
-    await db.completionDao.toggleCompletion(id, isoDate(DateTime.now()));
+    await db.completionDao.toggleCompletion(id, isoDate(now));
 
-    await service.rescheduleAll(db: db, settings: settings);
+    await service.rescheduleAll(db: db, settings: settings, now: now);
 
     final morning =
         scheduler.scheduled.firstWhere((c) => c.id == morningId);
@@ -49,7 +53,7 @@ void main() {
   });
 
   test('midday/evening messages list only incomplete tasks', () async {
-    final weekday = DateTime.now().weekday;
+    final weekday = now.weekday;
     await db.taskDao.insertTask(
       title: 'Done already',
       description: '',
@@ -63,9 +67,9 @@ void main() {
     final doneId = (await db.taskDao.getTasksDueOn(weekday))
         .firstWhere((t) => t.title == 'Done already')
         .id;
-    await db.completionDao.toggleCompletion(doneId, isoDate(DateTime.now()));
+    await db.completionDao.toggleCompletion(doneId, isoDate(now));
 
-    await service.rescheduleAll(db: db, settings: settings);
+    await service.rescheduleAll(db: db, settings: settings, now: now);
 
     final midday = scheduler.scheduled.firstWhere((c) => c.id == middayId);
     final evening = scheduler.scheduled.firstWhere((c) => c.id == eveningId);
@@ -76,7 +80,7 @@ void main() {
 
   test('schedules using the configured times', () async {
     await settings.setMorningTime(const TimeOfDay(hour: 7, minute: 30));
-    await service.rescheduleAll(db: db, settings: settings);
+    await service.rescheduleAll(db: db, settings: settings, now: now);
 
     final morning =
         scheduler.scheduled.firstWhere((c) => c.id == morningId);
@@ -85,7 +89,7 @@ void main() {
   });
 
   test('no tasks due today produces the empty-state messages', () async {
-    await service.rescheduleAll(db: db, settings: settings);
+    await service.rescheduleAll(db: db, settings: settings, now: now);
 
     final morning =
         scheduler.scheduled.firstWhere((c) => c.id == morningId);

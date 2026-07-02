@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/database.dart';
+import '../domain/due_logic.dart';
 
 class TaskInputScreen extends StatefulWidget {
   final AppDatabase db;
@@ -15,6 +16,7 @@ class _TaskInputScreenState extends State<TaskInputScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final Set<int> _selectedWeekdays = {};
+  DateTime? _endDate;
   bool _loading = false;
 
   bool get _isAddMode => widget.taskId == null;
@@ -42,18 +44,32 @@ class _TaskInputScreenState extends State<TaskInputScreen> {
       _selectedWeekdays
         ..clear()
         ..addAll(tw.weekdays);
+      _endDate =
+          tw.task.endDate == null ? null : DateTime.parse(tw.task.endDate!);
       _loading = false;
     });
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? DateTime.now().add(const Duration(days: 7)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (picked != null) setState(() => _endDate = picked);
   }
 
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty || _selectedWeekdays.isEmpty) return;
+    final endDate = _endDate == null ? null : isoDate(_endDate!);
     if (_isAddMode) {
       await widget.db.taskDao.insertTask(
         title: title,
         description: _descController.text.trim(),
         weekdays: _selectedWeekdays.toList(),
+        endDate: endDate,
       );
     } else {
       await widget.db.taskDao.updateTask(
@@ -61,14 +77,41 @@ class _TaskInputScreenState extends State<TaskInputScreen> {
         title: title,
         description: _descController.text.trim(),
         weekdays: _selectedWeekdays.toList(),
+        endDate: endDate,
       );
     }
     if (mounted) Navigator.pop(context);
   }
 
-  Future<void> _delete() async {
+  Future<void> _stop() async {
     await widget.db.taskDao.deactivateTask(widget.taskId!);
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete task?'),
+        content: const Text(
+          'This permanently removes the task and its history. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await widget.db.taskDao.deleteTaskPermanently(widget.taskId!);
+      if (mounted) Navigator.pop(context);
+    }
   }
 
   @override
@@ -81,9 +124,17 @@ class _TaskInputScreenState extends State<TaskInputScreen> {
         title: Text(_isAddMode ? 'Add Task' : 'Edit Task'),
         actions: [
           if (!_isAddMode)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _delete,
+            PopupMenuButton<String>(
+              key: const Key('taskMenuButton'),
+              onSelected: (value) {
+                if (value == 'stop') _stop();
+                if (value == 'delete') _confirmDelete();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'stop', child: Text('Stop (pause)')),
+                PopupMenuItem(
+                    value: 'delete', child: Text('Delete permanently')),
+              ],
             ),
         ],
       ),
@@ -119,6 +170,31 @@ class _TaskInputScreenState extends State<TaskInputScreen> {
                   _selectedWeekdays.add(day);
                 }
               }),
+            ),
+            const SizedBox(height: 20),
+            const Text('Ends on',
+                style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const Key('endDateButton'),
+                    onPressed: _pickEndDate,
+                    child: Text(
+                      _endDate == null
+                          ? 'Repeats weekly (no end date)'
+                          : 'Ends ${isoDate(_endDate!)}',
+                    ),
+                  ),
+                ),
+                if (_endDate != null)
+                  IconButton(
+                    key: const Key('clearEndDateButton'),
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(() => _endDate = null),
+                  ),
+              ],
             ),
           ],
         ),

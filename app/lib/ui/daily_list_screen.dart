@@ -3,6 +3,7 @@ import '../data/database.dart';
 import '../domain/due_logic.dart';
 import '../services/notification_service.dart';
 import '../services/settings_repository.dart';
+import 'all_tasks_screen.dart';
 import 'settings_screen.dart';
 import 'task_input_screen.dart';
 
@@ -36,7 +37,7 @@ class _DailyListScreenState extends State<DailyListScreen> {
   Future<void> _load() async {
     final today = isoDate(DateTime.now());
     final weekday = DateTime.now().weekday;
-    final tasks = await widget.db.taskDao.getTasksDueOn(weekday);
+    final tasks = await widget.db.taskDao.getTasksDueOn(weekday, today: today);
     final completions =
         await widget.db.completionDao.getCompletionsForDate(today);
     if (!mounted) return;
@@ -65,6 +66,14 @@ class _DailyListScreenState extends State<DailyListScreen> {
       context,
       MaterialPageRoute(
           builder: (_) => TaskInputScreen(db: widget.db, taskId: task.id)),
+    );
+    await _load();
+  }
+
+  Future<void> _navigateToAllTasks() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AllTasksScreen(db: widget.db)),
     );
     await _load();
   }
@@ -99,6 +108,11 @@ class _DailyListScreenState extends State<DailyListScreen> {
           '${stats.completed}/${stats.total}  ·  ${isoDate(DateTime.now())}',
         ),
         actions: [
+          IconButton(
+            key: const Key('allTasksButton'),
+            icon: const Icon(Icons.list_alt),
+            onPressed: _navigateToAllTasks,
+          ),
           IconButton(
             key: const Key('settingsButton'),
             icon: const Icon(Icons.settings),
@@ -137,8 +151,12 @@ class _DailyListScreenState extends State<DailyListScreen> {
                   subtitle: task.description.isNotEmpty
                       ? Text(task.description)
                       : null,
+                  trailing: IconButton(
+                    key: Key('editButton_${task.id}'),
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _navigateToEdit(task),
+                  ),
                   onTap: () => _toggle(task.id),
-                  onLongPress: () => _navigateToEdit(task),
                 );
               },
             ),

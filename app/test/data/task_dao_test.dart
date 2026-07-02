@@ -80,6 +80,68 @@ void main() {
       expect(due.map((t) => t.id), contains(id1));
       expect(due.map((t) => t.id), isNot(contains(id2)));
     });
+
+    test('getTasksDueOn excludes tasks past their end date', () async {
+      await db.taskDao.insertTask(
+          title: 'Expired', description: '', weekdays: [1], endDate: '2026-06-01');
+      await db.taskDao.insertTask(
+          title: 'Still going', description: '', weekdays: [1], endDate: '2026-12-31');
+      final due = await db.taskDao.getTasksDueOn(1, today: '2026-07-01');
+      expect(due.map((t) => t.title), contains('Still going'));
+      expect(due.map((t) => t.title), isNot(contains('Expired')));
+    });
+
+    test('getTasksDueOn includes a task due exactly on its end date', () async {
+      await db.taskDao.insertTask(
+          title: 'Last day', description: '', weekdays: [1], endDate: '2026-07-01');
+      final due = await db.taskDao.getTasksDueOn(1, today: '2026-07-01');
+      expect(due.map((t) => t.title), contains('Last day'));
+    });
+
+    test('getTasksDueOn includes tasks with no end date regardless of today',
+        () async {
+      await db.taskDao.insertTask(title: 'Forever', description: '', weekdays: [1]);
+      final due = await db.taskDao.getTasksDueOn(1, today: '2099-01-01');
+      expect(due.map((t) => t.title), contains('Forever'));
+    });
+
+    test('updateTask can set and then clear the end date', () async {
+      final id =
+          await db.taskDao.insertTask(title: 'A', description: '', weekdays: [1]);
+      await db.taskDao.updateTask(
+          id: id, title: 'A', description: '', weekdays: [1], endDate: '2026-08-01');
+      var tw = await db.taskDao.getTaskWithWeekdays(id);
+      expect(tw.task.endDate, '2026-08-01');
+
+      await db.taskDao.updateTask(
+          id: id, title: 'A', description: '', weekdays: [1], endDate: null);
+      tw = await db.taskDao.getTaskWithWeekdays(id);
+      expect(tw.task.endDate, isNull);
+    });
+
+    test('getAllTasksWithWeekdays includes both active and stopped tasks',
+        () async {
+      final activeId = await db.taskDao
+          .insertTask(title: 'Active', description: '', weekdays: [1]);
+      final stoppedId = await db.taskDao
+          .insertTask(title: 'Stopped', description: '', weekdays: [2]);
+      await db.taskDao.deactivateTask(stoppedId);
+
+      final all = await db.taskDao.getAllTasksWithWeekdays();
+      expect(all.map((tw) => tw.task.id), containsAll([activeId, stoppedId]));
+    });
+
+    test('deleteTaskPermanently removes the task, its weekdays, and completions',
+        () async {
+      final id = await db.taskDao
+          .insertTask(title: 'Gone', description: '', weekdays: [2, 4]);
+      await db.completionDao.toggleCompletion(id, '2026-07-01');
+
+      await db.taskDao.deleteTaskPermanently(id);
+
+      expect(await db.taskDao.getAllTasksWithWeekdays(), isEmpty);
+      expect(await db.completionDao.getCompletionsForDate('2026-07-01'), isEmpty);
+    });
   });
 
   group('CompletionDao', () {

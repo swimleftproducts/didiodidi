@@ -73,6 +73,17 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _endDateMeta = const VerificationMeta(
+    'endDate',
+  );
+  @override
+  late final GeneratedColumn<String> endDate = GeneratedColumn<String>(
+    'end_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -81,6 +92,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     active,
     createdAt,
     imagePath,
+    endDate,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -136,6 +148,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta),
       );
     }
+    if (data.containsKey('end_date')) {
+      context.handle(
+        _endDateMeta,
+        endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta),
+      );
+    }
     return context;
   }
 
@@ -169,6 +187,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.string,
         data['${effectivePrefix}image_path'],
       ),
+      endDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}end_date'],
+      ),
     );
   }
 
@@ -185,6 +207,7 @@ class Task extends DataClass implements Insertable<Task> {
   final bool active;
   final DateTime createdAt;
   final String? imagePath;
+  final String? endDate;
   const Task({
     required this.id,
     required this.title,
@@ -192,6 +215,7 @@ class Task extends DataClass implements Insertable<Task> {
     required this.active,
     required this.createdAt,
     this.imagePath,
+    this.endDate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -203,6 +227,9 @@ class Task extends DataClass implements Insertable<Task> {
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || imagePath != null) {
       map['image_path'] = Variable<String>(imagePath);
+    }
+    if (!nullToAbsent || endDate != null) {
+      map['end_date'] = Variable<String>(endDate);
     }
     return map;
   }
@@ -217,6 +244,9 @@ class Task extends DataClass implements Insertable<Task> {
       imagePath: imagePath == null && nullToAbsent
           ? const Value.absent()
           : Value(imagePath),
+      endDate: endDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endDate),
     );
   }
 
@@ -232,6 +262,7 @@ class Task extends DataClass implements Insertable<Task> {
       active: serializer.fromJson<bool>(json['active']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       imagePath: serializer.fromJson<String?>(json['imagePath']),
+      endDate: serializer.fromJson<String?>(json['endDate']),
     );
   }
   @override
@@ -244,6 +275,7 @@ class Task extends DataClass implements Insertable<Task> {
       'active': serializer.toJson<bool>(active),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'imagePath': serializer.toJson<String?>(imagePath),
+      'endDate': serializer.toJson<String?>(endDate),
     };
   }
 
@@ -254,6 +286,7 @@ class Task extends DataClass implements Insertable<Task> {
     bool? active,
     DateTime? createdAt,
     Value<String?> imagePath = const Value.absent(),
+    Value<String?> endDate = const Value.absent(),
   }) => Task(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -261,6 +294,7 @@ class Task extends DataClass implements Insertable<Task> {
     active: active ?? this.active,
     createdAt: createdAt ?? this.createdAt,
     imagePath: imagePath.present ? imagePath.value : this.imagePath,
+    endDate: endDate.present ? endDate.value : this.endDate,
   );
   Task copyWithCompanion(TasksCompanion data) {
     return Task(
@@ -272,6 +306,7 @@ class Task extends DataClass implements Insertable<Task> {
       active: data.active.present ? data.active.value : this.active,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
+      endDate: data.endDate.present ? data.endDate.value : this.endDate,
     );
   }
 
@@ -283,14 +318,22 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('description: $description, ')
           ..write('active: $active, ')
           ..write('createdAt: $createdAt, ')
-          ..write('imagePath: $imagePath')
+          ..write('imagePath: $imagePath, ')
+          ..write('endDate: $endDate')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, title, description, active, createdAt, imagePath);
+  int get hashCode => Object.hash(
+    id,
+    title,
+    description,
+    active,
+    createdAt,
+    imagePath,
+    endDate,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -300,7 +343,8 @@ class Task extends DataClass implements Insertable<Task> {
           other.description == this.description &&
           other.active == this.active &&
           other.createdAt == this.createdAt &&
-          other.imagePath == this.imagePath);
+          other.imagePath == this.imagePath &&
+          other.endDate == this.endDate);
 }
 
 class TasksCompanion extends UpdateCompanion<Task> {
@@ -310,6 +354,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<bool> active;
   final Value<DateTime> createdAt;
   final Value<String?> imagePath;
+  final Value<String?> endDate;
   final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
@@ -318,6 +363,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.active = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.imagePath = const Value.absent(),
+    this.endDate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
@@ -327,6 +373,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.active = const Value.absent(),
     required DateTime createdAt,
     this.imagePath = const Value.absent(),
+    this.endDate = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -338,6 +385,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<bool>? active,
     Expression<DateTime>? createdAt,
     Expression<String>? imagePath,
+    Expression<String>? endDate,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -347,6 +395,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (active != null) 'active': active,
       if (createdAt != null) 'created_at': createdAt,
       if (imagePath != null) 'image_path': imagePath,
+      if (endDate != null) 'end_date': endDate,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -358,6 +407,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<bool>? active,
     Value<DateTime>? createdAt,
     Value<String?>? imagePath,
+    Value<String?>? endDate,
     Value<int>? rowid,
   }) {
     return TasksCompanion(
@@ -367,6 +417,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,
       imagePath: imagePath ?? this.imagePath,
+      endDate: endDate ?? this.endDate,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -392,6 +443,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (imagePath.present) {
       map['image_path'] = Variable<String>(imagePath.value);
     }
+    if (endDate.present) {
+      map['end_date'] = Variable<String>(endDate.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -407,6 +461,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('active: $active, ')
           ..write('createdAt: $createdAt, ')
           ..write('imagePath: $imagePath, ')
+          ..write('endDate: $endDate, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -916,6 +971,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<bool> active,
       required DateTime createdAt,
       Value<String?> imagePath,
+      Value<String?> endDate,
       Value<int> rowid,
     });
 typedef $$TasksTableUpdateCompanionBuilder =
@@ -926,6 +982,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<bool> active,
       Value<DateTime> createdAt,
       Value<String?> imagePath,
+      Value<String?> endDate,
       Value<int> rowid,
     });
 
@@ -964,6 +1021,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<String> get imagePath => $composableBuilder(
     column: $table.imagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get endDate => $composableBuilder(
+    column: $table.endDate,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1006,6 +1068,11 @@ class $$TasksTableOrderingComposer
     column: $table.imagePath,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get endDate => $composableBuilder(
+    column: $table.endDate,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TasksTableAnnotationComposer
@@ -1036,6 +1103,9 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<String> get imagePath =>
       $composableBuilder(column: $table.imagePath, builder: (column) => column);
+
+  GeneratedColumn<String> get endDate =>
+      $composableBuilder(column: $table.endDate, builder: (column) => column);
 }
 
 class $$TasksTableTableManager
@@ -1072,6 +1142,7 @@ class $$TasksTableTableManager
                 Value<bool> active = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> imagePath = const Value.absent(),
+                Value<String?> endDate = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
@@ -1080,6 +1151,7 @@ class $$TasksTableTableManager
                 active: active,
                 createdAt: createdAt,
                 imagePath: imagePath,
+                endDate: endDate,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1090,6 +1162,7 @@ class $$TasksTableTableManager
                 Value<bool> active = const Value.absent(),
                 required DateTime createdAt,
                 Value<String?> imagePath = const Value.absent(),
+                Value<String?> endDate = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
@@ -1098,6 +1171,7 @@ class $$TasksTableTableManager
                 active: active,
                 createdAt: createdAt,
                 imagePath: imagePath,
+                endDate: endDate,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

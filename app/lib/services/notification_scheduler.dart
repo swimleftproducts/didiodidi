@@ -42,10 +42,13 @@ class FlutterLocalNotificationsScheduler implements NotificationScheduler {
 
     // Android 13+ requires this runtime request; the manifest entry alone
     // leaves the permission unresolved and notifications silently never post.
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.requestNotificationsPermission();
+    // Without exact-alarm permission, scheduling falls back to inexact
+    // delivery, which Android may defer by up to an hour — well past
+    // "morning/midday/evening reminder" usefulness.
+    await androidPlugin?.requestExactAlarmsPermission();
   }
 
   @override
@@ -67,7 +70,7 @@ class FlutterLocalNotificationsScheduler implements NotificationScheduler {
         android: AndroidNotificationDetails(_channelId, _channelName),
         iOS: DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,

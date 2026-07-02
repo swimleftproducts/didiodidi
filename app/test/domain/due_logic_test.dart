@@ -38,6 +38,21 @@ void main() {
     });
   });
 
+  group('taskStillActiveOn', () {
+    test('null end date is always active', () {
+      expect(taskStillActiveOn(null, DateTime(2099, 1, 1)), isTrue);
+    });
+
+    test('active on and before its end date', () {
+      expect(taskStillActiveOn('2026-07-01', DateTime(2026, 7, 1)), isTrue);
+      expect(taskStillActiveOn('2026-07-01', DateTime(2026, 6, 25)), isTrue);
+    });
+
+    test('inactive after its end date', () {
+      expect(taskStillActiveOn('2026-07-01', DateTime(2026, 7, 2)), isFalse);
+    });
+  });
+
   group('incompleteTaskIds', () {
     test('filters completed tasks out', () {
       final result = incompleteTaskIds(['a', 'b', 'c'], {'b'});

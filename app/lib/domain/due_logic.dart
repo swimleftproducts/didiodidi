@@ -22,6 +22,13 @@ List<String> incompleteTaskIds(
 ) =>
     dueTaskIds.where((id) => !completedTaskIds.contains(id)).toList();
 
+/// Whether a task with the given [endDate] (nullable YYYY-MM-DD, null =
+/// repeats forever) is still active on [date].
+bool taskStillActiveOn(String? endDate, DateTime date) {
+  if (endDate == null) return true;
+  return isoDate(date).compareTo(endDate) <= 0;
+}
+
 /// Completion stats for a single day.
 ({int completed, int total}) computeStats(
   List<String> dueTaskIds,

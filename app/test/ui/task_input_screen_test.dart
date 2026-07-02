@@ -80,7 +80,28 @@ void main() {
     );
   });
 
-  testWidgets('delete button deactivates task', (tester) async {
+  testWidgets('stop menu item deactivates the task but keeps it around',
+      (tester) async {
+    final id = await db.taskDao.insertTask(
+      title: 'To stop',
+      description: '',
+      weekdays: [5],
+    );
+    await tester.pumpWidget(
+        MaterialApp(home: TaskInputScreen(db: db, taskId: id)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('taskMenuButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Stop (pause)'));
+    await tester.pumpAndSettle();
+
+    expect(await db.taskDao.getAllActiveTasks(), isEmpty);
+    final all = await db.taskDao.getAllTasksWithWeekdays();
+    expect(all.map((tw) => tw.task.id), contains(id));
+  });
+
+  testWidgets('delete menu item permanently removes the task', (tester) async {
     final id = await db.taskDao.insertTask(
       title: 'To delete',
       description: '',
@@ -90,9 +111,83 @@ void main() {
         MaterialApp(home: TaskInputScreen(db: db, taskId: id)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.tap(find.byKey(const Key('taskMenuButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete permanently'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(await db.taskDao.getAllActiveTasks(), isEmpty);
+    final all = await db.taskDao.getAllTasksWithWeekdays();
+    expect(all.map((tw) => tw.task.id), isNot(contains(id)));
+  });
+
+  testWidgets('cancelling delete keeps the task', (tester) async {
+    final id = await db.taskDao.insertTask(
+      title: 'Keep me',
+      description: '',
+      weekdays: [5],
+    );
+    await tester.pumpWidget(
+        MaterialApp(home: TaskInputScreen(db: db, taskId: id)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('taskMenuButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete permanently'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    final all = await db.taskDao.getAllTasksWithWeekdays();
+    expect(all.map((tw) => tw.task.id), contains(id));
+  });
+
+  testWidgets('defaults to no end date (repeats weekly)', (tester) async {
+    await tester.pumpWidget(buildAddScreen());
+    expect(find.text('Repeats weekly (no end date)'), findsOneWidget);
+    expect(find.byKey(const Key('clearEndDateButton')), findsNothing);
+  });
+
+  testWidgets('setting an end date persists it', (tester) async {
+    await tester.pumpWidget(buildAddScreen());
+    await tester.enterText(find.byKey(const Key('titleField')), 'Short course');
+    await tester.tap(find.byKey(const Key('weekday_2')));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('endDateButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('saveFab')));
+    await tester.pumpAndSettle();
+
+    final tasks = await db.taskDao.getAllActiveTasks();
+    expect(tasks.single.endDate, isNotNull);
+  });
+
+  testWidgets('clear button resets an existing end date to none',
+      (tester) async {
+    final id = await db.taskDao.insertTask(
+      title: 'Has end',
+      description: '',
+      weekdays: [1],
+      endDate: '2026-08-01',
+    );
+    await tester.pumpWidget(
+        MaterialApp(home: TaskInputScreen(db: db, taskId: id)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ends 2026-08-01'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('clearEndDateButton')));
+    await tester.pump();
+    expect(find.text('Repeats weekly (no end date)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('saveFab')));
+    await tester.pumpAndSettle();
+
+    final tw = await db.taskDao.getTaskWithWeekdays(id);
+    expect(tw.task.endDate, isNull);
   });
 }
