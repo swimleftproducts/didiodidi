@@ -37,7 +37,18 @@ needs to change between releases.
      --mime-type=application/vnd.android.package-archive
    ```
 
-3. Report the public URL back to the user:
+3. Flush the CDN cache for that file so the new APK is served immediately
+   instead of the old one for up to the zone's TTL (currently 3600s):
+   ```
+   doctl compute cdn flush ac273395-faf2-4efe-a906-0299d8036f44 --files "/builds/didiodidi-app-release.apk"
+   ```
+   Confirm active `doctl` context is `swimleft` first (`doctl account get`) —
+   this machine also has an unrelated `default` context on another DO
+   account. If the CDN ID above ever stops matching, look it up with
+   `doctl compute cdn list` (origin `didiodidi.sfo3.digitaloceanspaces.com`)
+   and update this skill with the new ID.
+
+4. Report the public URL back to the user:
    `https://didiodidi.sfo3.cdn.digitaloceanspaces.com/builds/didiodidi-app-release.apk`
 
 ## Notes
@@ -52,3 +63,7 @@ needs to change between releases.
   kind of build.
 - If `s3cmd` reports an auth error, check `~/.s3cfg-didiodidi` exists and is
   valid before assuming it's a Spaces-side issue.
+- Skipping the CDN flush is the single biggest source of "I installed the
+  new build but the bug is still there" confusion — the object is updated in
+  Spaces instantly, but edge nodes keep serving the old cached copy until
+  flushed or the TTL expires. Always flush, every time.
