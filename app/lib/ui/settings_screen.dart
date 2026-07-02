@@ -1,19 +1,27 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import '../data/database.dart';
+import '../domain/snapshot_builder.dart';
 import '../services/notification_service.dart';
 import '../services/settings_repository.dart';
+import '../services/share_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AppDatabase db;
   final SettingsRepository settings;
   final NotificationService notificationService;
+  final ShareService shareService;
 
-  const SettingsScreen({
+  SettingsScreen({
     super.key,
     required this.db,
     required this.settings,
     required this.notificationService,
-  });
+    ShareService? shareService,
+  }) : shareService = shareService ?? ShareService(client: http.Client());
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -27,6 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   TimeOfDay _middayTime = SettingsRepository.defaultMiddayTime;
   TimeOfDay _eveningTime = SettingsRepository.defaultEveningTime;
   bool _loading = true;
+  bool _sharing = false;
+  String? _shareUrl;
+  String? _shareError;
 
   @override
   void initState() {
@@ -62,6 +73,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settings.setApiKey(_apiKeyController.text.trim());
     await widget.settings.setUsername(_usernameController.text.trim());
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _share() async {
+    final username = _usernameController.text.trim();
+    if (username.isEmpty) {
+      setState(() {
+        _shareError = 'Set a username before sharing';
+        _shareUrl = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _sharing = true;
+      _shareError = null;
+      _shareUrl = null;
+    });
+
+    try {
+      final secret = await widget.settings.getOrCreateDeviceSecret();
+      final payload = await buildSnapshotPayload(
+        taskDao: widget.db.taskDao,
+        completionDao: widget.db.completionDao,
+        username: username,
+        deviceSecretBase64: secret,
+        now: DateTime.now(),
+        loadImageBytes: (path) => File(path).readAsBytes(),
+      );
+      final url = await widget.shareService.share(payload);
+      if (!mounted) return;
+      setState(() => _shareUrl = url);
+    } on SnapshotTooLargeException catch (e) {
+      if (!mounted) return;
+      setState(() => _shareError = e.message);
+    } on ShareException catch (e) {
+      if (!mounted) return;
+      setState(() => _shareError = e.message);
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
   }
 
   Future<void> _pickTime(
@@ -134,6 +185,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: _save,
             child: const Text('Save'),
           ),
+          const SizedBox(height: 24),
+          const Text('Share', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            key: const Key('shareButton'),
+            onPressed: _sharing ? null : _share,
+            child: _sharing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Share last 7 days'),
+          ),
+          if (_shareUrl != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _shareUrl!,
+                    key: const Key('shareUrlText'),
+                    style: const TextStyle(color: Colors.green),
+                  ),
+                ),
+                IconButton(
+                  key: const Key('copyShareUrlButton'),
+                  icon: const Icon(Icons.copy),
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: _shareUrl!)),
+                ),
+              ],
+            ),
+          ],
+          if (_shareError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _shareError!,
+              key: const Key('shareErrorText'),
+              style: const TextStyle(color: Colors.red),
+            ),
+          ],
         ],
       ),
     );

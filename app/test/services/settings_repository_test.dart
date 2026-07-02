@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:didiodidi/services/settings_repository.dart';
@@ -26,6 +28,16 @@ void main() {
     expect(await repo.getMorningTime(), const TimeOfDay(hour: 8, minute: 0));
     expect(await repo.getMiddayTime(), const TimeOfDay(hour: 12, minute: 30));
     expect(await repo.getEveningTime(), const TimeOfDay(hour: 18, minute: 0));
+  });
+
+  test('device secret is generated once and persists across instances', () async {
+    final store = InMemoryKeyValueStore();
+    final a = SettingsRepository(store);
+    final secret = await a.getOrCreateDeviceSecret();
+    expect(base64Decode(secret).length, 32);
+
+    final b = SettingsRepository(store);
+    expect(await b.getOrCreateDeviceSecret(), secret);
   });
 
   test('reminder times round-trip through the underlying store', () async {

@@ -1,12 +1,17 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'key_value_store.dart';
 
-/// User-configurable settings: the Anthropic API key, username, and the
-/// three daily reminder times. Backed by an injectable [KeyValueStore] so
-/// it can be tested without the real secure-storage plugin.
+/// User-configurable settings: the Anthropic API key, username, the device
+/// secret used for the share slug (CLAUDE.md Section 9), and the three
+/// daily reminder times. Backed by an injectable [KeyValueStore] so it can
+/// be tested without the real secure-storage plugin.
 class SettingsRepository {
   static const _kApiKey = 'anthropic_api_key';
   static const _kUsername = 'username';
+  static const _kDeviceSecret = 'device_secret';
   static const _kMorning = 'reminder_morning';
   static const _kMidday = 'reminder_midday';
   static const _kEvening = 'reminder_evening';
@@ -24,6 +29,23 @@ class SettingsRepository {
 
   Future<String?> getUsername() => _store.read(_kUsername);
   Future<void> setUsername(String value) => _store.write(_kUsername, value);
+
+  /// Returns the 32-byte device secret (base64), generating and persisting
+  /// one on first call. Never regenerated afterward — the share slug is
+  /// derived from this value, so changing it would break existing links.
+  Future<String> getOrCreateDeviceSecret() async {
+    final existing = await _store.read(_kDeviceSecret);
+    if (existing != null) return existing;
+    final secret = _generateDeviceSecret();
+    await _store.write(_kDeviceSecret, secret);
+    return secret;
+  }
+
+  String _generateDeviceSecret() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return base64.encode(bytes);
+  }
 
   Future<TimeOfDay> getMorningTime() => _getTime(_kMorning, defaultMorningTime);
   Future<TimeOfDay> getMiddayTime() => _getTime(_kMidday, defaultMiddayTime);

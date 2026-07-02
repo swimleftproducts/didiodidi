@@ -375,8 +375,12 @@ green.
 
 ## 13. Dev environment
 
-- **App**: developed on a computer, run onto an Android phone via `flutter run`; distributed to beta
-  testers as an **APK by email** for now. (No Play Store, no CI signing in v1.)
+- **App**: developed on a computer, run onto an Android phone via `flutter run` for local testing.
+  Release builds are distributed via the **`upload-build` skill** (`.claude/skills/upload-build/`),
+  which runs `flutter build apk --release` and publishes it with `s3cmd` to a fixed CDN URL —
+  `https://didiodidi.sfo3.cdn.digitaloceanspaces.com/builds/didiodidi-app-release.apk` — flushing the
+  CDN cache afterward. One stable filename, always overwritten, so shared links (e.g. from the
+  landing page) never need to change between releases. (No Play Store, no CI signing in v1.)
 - **Flutter install**: Homebrew cask (`brew install --cask flutter`), at
   `/opt/homebrew/share/flutter`, binary at `/opt/homebrew/bin/flutter`. Run as `flutter` from
   anywhere — no per-project install needed.

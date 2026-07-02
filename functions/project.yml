@@ -1,0 +1,17 @@
+packages:
+  - name: didiodidi
+    functions:
+      - name: ingest
+        binary: false
+        main: main
+        runtime: "python:3.12"
+        web: true
+        limits:
+          timeout: 10000
+        environment:
+          SPACES_KEY: "${SPACES_KEY}"
+          SPACES_SECRET: "${SPACES_SECRET}"
+          SPACES_ENDPOINT: "${SPACES_ENDPOINT}"
+          SPACES_REGION: "${SPACES_REGION}"
+          SPACES_BUCKET: "${SPACES_BUCKET}"
+          PUBLIC_BASE_URL: "${PUBLIC_BASE_URL}"
