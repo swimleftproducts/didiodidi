@@ -69,8 +69,15 @@ def _spaces_client():
 
     # Fail fast rather than let botocore's default retry/backoff burn
     # through whatever request timeout the platform enforces before we can
-    # return our own clean error response.
-    config = Config(connect_timeout=3, read_timeout=4, retries={"max_attempts": 1})
+    # return our own clean error response. addressing_style="path" avoids
+    # virtual-hosted-style bucket subdomains, which can hang on DNS/TLS
+    # against Spaces' non-AWS endpoint.
+    config = Config(
+        connect_timeout=3,
+        read_timeout=4,
+        retries={"max_attempts": 1},
+        s3={"addressing_style": "path"},
+    )
     return boto3.client(
         "s3",
         endpoint_url=os.environ["SPACES_ENDPOINT"],
