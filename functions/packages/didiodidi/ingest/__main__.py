@@ -205,6 +205,33 @@ def main(args):
 
         return _response(200, results)
 
+    if method.lower() == "post" and args.get("_debug_probe") == "1":
+        # TEMPORARY DIAGNOSTIC: identical boto3 call to the one that
+        # succeeded in 1.41s via GET, but triggered via POST -- isolates
+        # whether the *incoming method itself* (not payload content) is
+        # what makes this hang.
+        import time as _time
+
+        t0 = _time.time()
+        try:
+            _spaces_client().put_object(
+                Bucket=os.environ["SPACES_BUCKET"],
+                Key="claude-debug-boto3-via-post.txt",
+                Body=b"boto3 put triggered via POST",
+                ContentType="text/plain",
+                ACL="public-read",
+            )
+            return _response(200, {"boto3_put_via_post": f"ok in {_time.time() - t0:.2f}s"})
+        except Exception as exc:
+            return _response(
+                200,
+                {
+                    "boto3_put_via_post": (
+                        f"{exc.__class__.__name__}: {exc} after {_time.time() - t0:.2f}s"
+                    )
+                },
+            )
+
     body = args.get("http", {}).get("body")
     if body is not None:
         try:
