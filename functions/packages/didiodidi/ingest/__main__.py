@@ -8,8 +8,17 @@ username/slug -> image URIs -> render -> PUT -> return URL.
 import json
 import os
 import re
+import signal
 import traceback
 from pathlib import Path
+
+
+class SpacesTimeout(Exception):
+    pass
+
+
+def _raise_spaces_timeout(signum, frame):
+    raise SpacesTimeout("Spaces request exceeded 8s watchdog timeout")
 
 # Heavy third-party imports (boto3 in particular) are deferred into _init()/
 # _spaces_client() rather than done at module level. Cold-start import time
@@ -120,13 +129,26 @@ def handle_payload(payload):
 
     bucket = os.environ["SPACES_BUCKET"]
     key = f"{username}-{slug}"
-    _spaces_client().put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=html.encode("utf-8"),
-        ContentType="text/html",
-        ACL="public-read",
-    )
+
+    # Belt-and-suspenders on top of the client's own connect/read timeouts:
+    # a hard wall-clock bound so a hang here can never eat the platform's
+    # whole request budget in a way that prevents us from returning a clean
+    # error (observed live: this step hung ~30s despite a 3s/4s client
+    # timeout config, so something below botocore's own timeout handling —
+    # most likely DNS resolution — wasn't being bounded by it).
+    previous_handler = signal.signal(signal.SIGALRM, _raise_spaces_timeout)
+    signal.alarm(8)
+    try:
+        _spaces_client().put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=html.encode("utf-8"),
+            ContentType="text/html",
+            ACL="public-read",
+        )
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
     public_base_url = os.environ["PUBLIC_BASE_URL"].rstrip("/")
     return 200, {"url": f"{public_base_url}/{key}"}
