@@ -16,13 +16,26 @@ import jsonschema
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 _HERE = Path(__file__).parent
-_SCHEMA = json.loads((_HERE / "snapshot.schema.json").read_text())
-_VALIDATOR = jsonschema.Draft202012Validator(_SCHEMA)
 
-_JINJA_ENV = Environment(
-    loader=FileSystemLoader(str(_HERE / "templates")),
-    autoescape=select_autoescape(["html", "j2"]),
-)
+# Lazily initialized on first use, not at import time: if the deployed
+# package layout ever doesn't include these files, we want that surfaced
+# as a normal 500 response from main()'s exception handler, not a bare
+# import-time crash that the platform reports as an opaque gateway error
+# with zero detail (and no chance for us to log/return anything useful).
+_VALIDATOR = None
+_JINJA_ENV = None
+
+
+def _init():
+    global _VALIDATOR, _JINJA_ENV
+    if _VALIDATOR is not None:
+        return
+    schema = json.loads((_HERE / "snapshot.schema.json").read_text())
+    _VALIDATOR = jsonschema.Draft202012Validator(schema)
+    _JINJA_ENV = Environment(
+        loader=FileSystemLoader(str(_HERE / "templates")),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
 
 _USERNAME_RE = re.compile(r"^[a-z0-9_-]{1,32}$")
 _SLUG_RE = re.compile(r"^[a-z2-7]{10}$")
@@ -65,6 +78,7 @@ def handle_payload(payload):
     and returns a (statusCode, body_dict) tuple. Kept separate from `main`
     so tests can drive it directly without simulating DO's args envelope.
     """
+    _init()
     errors = list(_VALIDATOR.iter_errors(payload))
     if errors:
         return 400, {"error": f"Schema validation failed: {errors[0].message}"}
@@ -131,6 +145,6 @@ def main(args):
         # with no detail in the response body. Full traceback still goes to
         # the run logs; only a generic message reaches the client.
         traceback.print_exc()
-        return _error(500, f"Internal error: {exc.__class__.__name__}")
+        return _error(500, f"Internal error: {exc.__class__.__name__}: {exc}")
 
     return _response(status_code, body_dict)
