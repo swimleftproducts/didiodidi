@@ -17,15 +17,15 @@ A personal, no-account exercise/task tracker.
 - **Two primary screens**: a daily list (today's tasks + done/not-done) and an input screen
   (add/edit a task, by form or by photo→LLM).
 - **Share**: tapping share builds a self-contained HTML snapshot of the last 7 days and POSTs it
-  to a single serverless function, which stores it as a static file. The snapshot is then readable
-  at `share.didiodidi.com/{username}-{slug}` by anyone with the link.
+  to a small backend **ingest service**, which stores it as a static file. The snapshot is then
+  readable at `share.didiodidi.com/{username}-{slug}` by anyone with the link.
 - **Landing page**: `didiodidi.com` itself is a separate static marketing page (App Platform,
   `landing/`) explaining the app and linking to the Android download. It is not part of the
   share/ingest flow — see Section 13a.
 - **Reminders**: three local notifications per day (morning / midday / evening).
 
-Two languages: **Dart** (the app) and **Python** (the one serverless function). They meet only
-at a JSON payload, which is governed by a shared, version-controlled **contract** (Section 5).
+Two languages: **Dart** (the app) and **Python** (the ingest service). They meet only at a JSON
+payload, which is governed by a shared, version-controlled **contract** (Section 5).
 
 ---
 
@@ -34,9 +34,9 @@ at a JSON payload, which is governed by a shared, version-controlled **contract*
 There is no server-side database. There are exactly two places data lives:
 
 1. **On-device SQLite** (via `drift`) — the source of truth for tasks, completions, and image
-   file paths. The app reads/writes this **directly**. It never travels through the function.
+   file paths. The app reads/writes this **directly**. It never travels through the ingest service.
 2. **DigitalOcean Spaces** — a dumb blob store holding published HTML snapshots. Written **only**
-   by the function, at share time.
+   by the ingest service, at share time.
 
 ```
 ┌────────────────────────── PHONE ──────────────────────────┐
@@ -48,41 +48,58 @@ There is no server-side database. There are exactly two places data lives:
 │         │ POST {contract JSON}                             │
 └─────────┼──────────────────────────────────────────────────┘
           ▼
-   /ingest   (Python serverless function — the ONLY writer to Spaces; exact invoke domain TBD, see 13a)
+   api.didiodidi.com/ingest   (Python/FastAPI — the ONLY writer to Spaces; see 13a)
           │ validate → render (Jinja2, autoescape) → PUT
           ▼
    DigitalOcean Spaces  →  CDN  →  share.didiodidi.com/{username}-{slug}  (public, static, read-only)
 ```
 
-The read path has **no function**: `share.didiodidi.com/{username}-{slug}` is served straight from
+The read path has **no service**: `share.didiodidi.com/{username}-{slug}` is served straight from
 the Spaces CDN via a DNS CNAME directly to the CDN endpoint — it never touches App Platform or the
-function. The function exists only to write.
+ingest service. The service exists only to write.
 
 `didiodidi.com` (bare root) is a **separate App Platform app** serving the static landing page —
-it shares nothing with the share/ingest path. Because the root domain now belongs to App Platform,
-the ingest function needs its own routing (a DO Functions invoke URL, or an `api.` subdomain) that
-doesn't collide with either `didiodidi.com` or the `share.` CNAME — **not yet decided, revisit in
-Phase 3.**
+it shares nothing with the share/ingest path. The ingest service is its own App Platform app
+(`didiodidi-ingest`), bound to its own `api.didiodidi.com` subdomain, so it doesn't collide with
+either `didiodidi.com` or the `share.` CNAME.
+
+**Why a FastAPI Service instead of DO Functions:** Phase 3 was originally built as a DigitalOcean
+Functions component (App Platform Functions), matching the "serverless" framing this project
+started with. That implementation hit a **platform bug**, confirmed with a clean, minimal repro:
+an App Platform Functions component invoked via `POST` cannot make an outbound body-bearing HTTP
+call (e.g. `boto3`'s `put_object`, or even a bare `urllib` PUT with no boto3 involved) without
+hanging for ~30s and then failing with an opaque platform-level error — while the *identical*
+outbound call made from a `GET`-triggered invocation of the same function succeeds in a fraction of
+a second. Recreating the App Platform app from scratch fixed one related issue (a broader hang
+affecting all outbound calls) but not this narrower POST-specific one. Since this makes any
+"receive a payload via POST, then write it to Spaces" handler fundamentally non-functional in DO's
+Functions runtime, the ingest service is instead a regular **App Platform Service component**
+running FastAPI — a normal always-on HTTP process, not a Functions/OpenWhisk invocation, so it
+doesn't go through whichever part of that gateway has the bug. Cost is DO's Basic tier minimum
+(~$5/month) instead of Functions' pay-per-invocation, in exchange for a normal, boring, reliable
+HTTP server. See Section 13a for the deployed app details.
 
 ---
 
 ## 3. Hard Constraints (non-negotiable)
 
 1. **Local data never leaves the device except inside a share snapshot the user explicitly triggers.**
-2. **Only the function may hold Spaces write credentials.** They live in the function's environment,
-   never in the app, never in a snapshot, never in the repo. The app cannot write to Spaces.
-3. **Payload ceiling ≈ 1.8 MB.** DigitalOcean Functions reject request bodies above ~2 MB
-   (`Request larger than allowed: … > 2097152 bytes`) despite docs claiming 5 MB. The generated
-   snapshot HTML — including all embedded base64 thumbnails — **must** stay under **1.8 MB**. The
-   app must enforce this before POSTing (downscale/recompress thumbnails; drop images if needed) and
-   surface a clear error rather than sending an oversized body.
-4. **All task-supplied text is data, never markup.** The function renders via **Jinja2 with
+2. **Only the ingest service may hold Spaces write credentials.** They live in the service's
+   environment, never in the app, never in a snapshot, never in the repo. The app cannot write to
+   Spaces.
+3. **Payload ceiling ≈ 1.8 MB.** This was originally driven by DO Functions' ~2 MB request body
+   limit; now that ingest is a normal App Platform Service, that specific ceiling no longer applies,
+   but 1.8 MB is kept as the client-side image/thumbnail budget regardless — it keeps snapshot pages
+   fast to load and caps how much a single share can grow. The app must enforce this before POSTing
+   (downscale/recompress thumbnails; drop images if needed) and surface a clear error rather than
+   sending an oversized body.
+4. **All task-supplied text is data, never markup.** The service renders via **Jinja2 with
    autoescaping ON**, into a fixed template. A task titled `<script>…</script>` must render as inert
-   text. Never build HTML by string concatenation in the function.
-5. **Image sources must be validated `data:image/...` URIs.** The function rejects any `image` value
+   text. Never build HTML by string concatenation in the service.
+5. **Image sources must be validated `data:image/...` URIs.** The service rejects any `image` value
    that does not match `^data:image/(png|jpeg|webp);base64,`. No `http:`, no `javascript:`.
-6. **The function is stateless by default.** It stores nothing but the rendered page. It does not
-   verify slug ownership (see Section 9 for the security model and the opt-in hardening).
+6. **The ingest service is stateless by default.** It stores nothing but the rendered page. It does
+   not verify slug ownership (see Section 9 for the security model and the opt-in hardening).
 7. **The contract is the source of truth** (Section 5). Neither the Dart models nor the Python code
    may diverge from `contract/schema/snapshot.schema.json`.
 
@@ -95,7 +112,7 @@ Phase 3.**
 ├── CLAUDE.md                     # this file
 ├── landing/                      # static marketing page, deployed via App Platform to didiodidi.com
 │   └── index.html
-├── contract/                     # the single source of truth for the app↔function payload
+├── contract/                     # the single source of truth for the app↔service payload
 │   ├── schema/
 │   │   └── snapshot.schema.json  # JSON Schema (draft 2020-12). THE contract.
 │   └── fixtures/                 # golden payloads BOTH test suites pin to
@@ -111,18 +128,20 @@ Phase 3.**
 │   │   └── ui/                   # DailyListScreen, TaskInputScreen, SettingsScreen
 │   ├── test/
 │   └── pubspec.yaml
-└── functions/                    # DigitalOcean Functions project
-    ├── project.yml
-    ├── packages/
-    │   └── didiodidi/
-    │       └── ingest/
-    │           ├── __main__.py           # def main(args): ...
-    │           ├── requirements.txt      # jsonschema, jinja2, boto3
-    │           └── templates/
-    │               └── snapshot.html.j2
-    └── tests/                    # pytest + moto (kept out of the deployed action)
+└── service/                      # DigitalOcean App Platform Service component (FastAPI)
+    ├── app/
+    │   ├── main.py                # FastAPI app; POST /ingest
+    │   ├── requirements.txt       # fastapi, uvicorn, jsonschema, jinja2, boto3
+    │   ├── snapshot.schema.json   # copy of contract/schema — see Section 8's drift-guard test
+    │   └── templates/
+    │       └── snapshot.html.j2
+    └── tests/                    # pytest + moto
         └── test_ingest.py
 ```
+
+(As of this writing, the code above still lives at the old `functions/` path from the
+DigitalOcean-Functions implementation described in Section 2's "why a FastAPI Service" note; the
+move to `service/` is the next concrete step.)
 
 ---
 
@@ -132,14 +151,14 @@ Phase 3.**
 
 Three guards, all cheap, together make silent drift essentially impossible:
 
-- **Runtime guard** — the function validates every incoming payload against
+- **Runtime guard** — the ingest service validates every incoming payload against
   `snapshot.schema.json` with `jsonschema` as the *first* thing it does, returning HTTP 400 on any
   mismatch. It never renders unvalidated input.
 - **Drift guard** — the golden fixtures in `contract/fixtures/` are shared. Dart tests assert the
   app **serializes to** those exact fixtures; Python tests load the **same** files and assert the
-  function accepts and renders them; a small test validates every fixture against the schema. Rename
+  service accepts and renders them; a small test validates every fixture against the schema. Rename
   a field on either side and that side's fixture test fails immediately.
-- **Evolution guard** — every payload carries `schema_version` (integer). The function rejects
+- **Evolution guard** — every payload carries `schema_version` (integer). The service rejects
   unknown versions rather than guessing. Current version: **1**.
 
 ### Wire-format decisions (pinned in the schema — do not deviate)
@@ -247,23 +266,23 @@ Design notes:
 
 ---
 
-## 8. Serverless function spec (`/ingest`, Python)
+## 8. Ingest service spec (`/ingest`, Python/FastAPI)
 
-Signature: `def main(args): -> {"statusCode": int, "body": str, "headers": {...}}`.
+Deployed as a DO **App Platform Service component** (not Functions — see Section 2's "why a FastAPI
+Service" note). A plain FastAPI app with one route: `POST /ingest`. CORS is handled declaratively
+via `fastapi.middleware.cors.CORSMiddleware`, not by hand.
 
 Order of operations (fail fast, in this order):
-1. Method/CORS: handle `OPTIONS`; set `Access-Control-Allow-Origin` etc. (the 413/CORS pairing is a
-   known DO gotcha — get headers right).
-2. Parse JSON body.
-3. **Validate against `snapshot.schema.json` with `jsonschema`.** Reject → 400 with a clear message.
-4. Check `schema_version == 1`. Unknown → 400.
-5. Validate `username` (`^[a-z0-9_-]{1,32}$`) and `slug` (`^[a-z2-7]{10}$`).
-6. Validate every `image` against `^data:image/(png|jpeg|webp);base64,` — reject otherwise.
-7. Render `templates/snapshot.html.j2` with **`autoescape=True`** → HTML string.
-8. `PUT` to Spaces via **boto3** (S3-compatible endpoint) at key
+1. Parse JSON body (FastAPI's request-body parsing / a Pydantic model, or manual `await request.json()`).
+2. **Validate against `snapshot.schema.json` with `jsonschema`.** Reject → 400 with a clear message.
+3. Check `schema_version == 1`. Unknown → 400.
+4. Validate `username` (`^[a-z0-9_-]{1,32}$`) and `slug` (`^[a-z2-7]{10}$`).
+5. Validate every `image` against `^data:image/(png|jpeg|webp);base64,` — reject otherwise.
+6. Render `templates/snapshot.html.j2` with **`autoescape=True`** → HTML string.
+7. `PUT` to Spaces via **boto3** (S3-compatible endpoint) at key
    `{username}-{slug}` (no folder prefix, no extension — see note below), `ContentType=text/html`,
    public-read.
-9. Return 200 with the public URL: `https://share.didiodidi.com/{username}-{slug}`.
+8. Return 200 with the public URL: `https://share.didiodidi.com/{username}-{slug}`.
 
 **Why no `pages/` prefix or `.html` extension on the object key:** the CDN sits directly in front of
 the bucket via a plain DNS CNAME (`share.didiodidi.com` → CDN endpoint) with no reverse proxy or
@@ -272,10 +291,12 @@ rewrite layer in between, so it only ever serves **exact object-key matches** �
 `PUT`, so the extensionless key still serves as `text/html`. Confirmed working with a manually
 uploaded `test_12345.html` object during infra setup (Section 13a).
 
-Dependencies (`requirements.txt`): `jsonschema`, `jinja2`, `boto3`.
+Dependencies (`requirements.txt`): `fastapi`, `uvicorn`, `jsonschema`, `jinja2`, `boto3`.
 
 Config via env (never in repo): `SPACES_KEY`, `SPACES_SECRET`, `SPACES_ENDPOINT`,
-`SPACES_REGION`, `SPACES_BUCKET`, `PUBLIC_BASE_URL`.
+`SPACES_REGION`, `SPACES_BUCKET`, `PUBLIC_BASE_URL`. Set as App Platform environment variables on
+the service component (secrets marked Encrypted) — no `project.yml`-style dual-declaration dance
+needed; a normal Service component just reads `os.environ` like any other process.
 
 Template: renders the stat line (`{completed}/{total}`), then a responsive 7-day view — columns per
 day on wide screens, stacking vertically on narrow — with each day's tasks and done/not-done marks
@@ -307,7 +328,7 @@ unguessable, so the page is effectively unlisted).
 - **A person you shared the link with can overwrite your page** — because the slug is in the URL you
   handed them. The blast radius is only a defaced *static* page; your on-device data is untouched.
 
-**Opt-in hardening (Phase 3 stretch, only if desired):** on overwrite, have the function `HEAD` the
+**Opt-in hardening (Phase 3 stretch, only if desired):** on overwrite, have the ingest service `HEAD` the
 existing object, read an `x-amz-meta-write-hash`, and require the incoming request to present a
 secret whose hash matches (first write sets it). This keeps the read-slug public but makes *writes*
 require the secret, which is never in the URL. It uses the object's own metadata as the binding
@@ -346,10 +367,11 @@ the **Anthropic API** (vision) with a prompt to extract structured fields, and p
   response handling. This is the only place we mock.
 - Widget tests for the two screens (toggle completion, add/edit task).
 
-**Python (`functions/tests/`):**
-- **pytest + `moto`** (mock S3/Spaces). Feed `main()` each fixture: assert it validates, escapes
-  hostile task text (inject `<script>` and assert it's inert in output), computes the correct key,
-  rejects bad `image` URIs / bad slug / unknown `schema_version`, and writes to the mocked bucket.
+**Python (`service/tests/`):**
+- **pytest + `moto`** (mock S3/Spaces), using FastAPI's `TestClient`. Feed each fixture to
+  `POST /ingest`: assert it validates, escapes hostile task text (inject `<script>` and assert it's
+  inert in output), computes the correct key, rejects bad `image` URIs / bad slug / unknown
+  `schema_version`, and writes to the mocked bucket.
 
 **Shared:** a test on each side loads `contract/fixtures/*` and validates them against
 `snapshot.schema.json`, so the fixtures can't drift from the schema.
@@ -366,9 +388,10 @@ green.
 - **Phase 1 — Local app.** drift schema + DAOs, domain logic (due/incomplete/stats), the two
   screens, add/edit/complete. Full Dart tests. **No network, no images-to-cloud yet.**
 - **Phase 2 — Reminders.** The three notifications + reschedule-on-lifecycle. Configurable times.
-- **Phase 3 — Sharing.** The Python `/ingest` function (validate → Jinja2 autoescape → boto3 PUT),
-  the snapshot template, `ShareService`, the slug scheme, the <1.8 MB guard. pytest+moto + Dart
-  share tests. (Optional: the Section 9 hardening.)
+- **Phase 3 — Sharing.** The Python `/ingest` service (FastAPI; validate → Jinja2 autoescape →
+  boto3 PUT), deployed as a DO App Platform Service component (see Section 2), the snapshot
+  template, `ShareService`, the slug scheme, the <1.8 MB guard. pytest+moto + Dart share tests.
+  (Optional: the Section 9 hardening.)
 - **Phase 4 — Photo ingest.** `IngestLlmService` (Anthropic), attach-image-to-task, photo→form.
 
 ---
@@ -384,14 +407,15 @@ green.
 - **Flutter install**: Homebrew cask (`brew install --cask flutter`), at
   `/opt/homebrew/share/flutter`, binary at `/opt/homebrew/bin/flutter`. Run as `flutter` from
   anywhere — no per-project install needed.
-- **Function**: `doctl serverless` for local invoke + deploy. Python action under
-  `packages/didiodidi/ingest/`. `doctl` is installed globally; run `doctl serverless connect` to
-  link this project (separate namespace from other DO projects).
+- **Ingest service**: runs locally via `uvicorn app.main:app --reload` from `service/`. Deployed as
+  a DO **App Platform Service component** (`didiodidi-ingest` app) with GitHub deploy-on-push from
+  `master` — no `doctl serverless`/`project.yml` involved (see Section 2 for why this isn't DO
+  Functions). `doctl apps` (not `doctl serverless`) is the relevant CLI surface for managing it.
 - **Python env**: **conda environment `didiodidi`** (Python 3.12). Create once:
-  `conda create -n didiodidi python=3.12 && conda activate didiodidi && pip install -r functions/packages/didiodidi/ingest/requirements.txt`
+  `conda create -n didiodidi python=3.12 && conda activate didiodidi && pip install -r service/app/requirements.txt`
 - **LLM model constant**: `claude-sonnet-4-6` — one constant in `IngestLlmService`, never hardcoded elsewhere.
 - **Domain**: `didiodidi.com` is being transferred to DigitalOcean. Use `kPublicBaseUrl` constant
-  (Dart) / `PUBLIC_BASE_URL` env var (function) — never hardcode the domain.
+  (Dart) / `PUBLIC_BASE_URL` env var (service) — never hardcode the domain.
 
 ### Commands
 ```
@@ -401,10 +425,12 @@ cd app && flutter test                                         # all Dart tests
 cd app && flutter test test/path/to/test.dart                 # single test file
 cd app && flutter run                                         # onto connected Android device
 
-# Function (activate conda env first: conda activate didiodidi)
-pytest functions/tests/                                       # all Python tests
-pytest functions/tests/test_ingest.py::test_name             # single test
-doctl serverless deploy functions/                           # deploy to DigitalOcean
+# Ingest service (activate conda env first: conda activate didiodidi)
+pytest service/tests/                                          # all Python tests
+pytest service/tests/test_ingest.py::test_name                # single test
+uvicorn app.main:app --reload --app-dir service                # run locally
+doctl apps update <app-id> --spec <spec.yaml>                  # update the deployed app spec
+# Normal code changes deploy via `git push` (deploy-on-push from master), not a manual deploy command.
 ```
 
 ---
@@ -433,9 +459,20 @@ always confirm active context with `doctl account get` before running infra comm
   `master`. Required a one-time GitHub App authorization in the DO console before `doctl apps create`
   would work (`GitHub user not authenticated` otherwise). Custom domain `didiodidi.com` bound to this
   app (done manually in console).
-- **Not yet done**: the ingest function itself hasn't been deployed or given a routable domain (see
-  Section 2's open note); the `pages/` fixtures/templates in `functions/` predate the object-key
-  decision above and should be checked for consistency when Phase 3 starts.
+- **Ingest app**: App Platform app `didiodidi-ingest` (region `sfo`, in the `didiodidi` project),
+  custom domain `api.didiodidi.com` bound and active. Currently still running the DO **Functions**
+  component implementation described in Section 2's "why a FastAPI Service" note — confirmed
+  working for routing/domain/env-vars, but blocked on the POST-outbound-hang platform bug. **Next
+  concrete step**: convert this app's component from `functions:` to a `services:` component
+  running FastAPI (moving code from `functions/` to `service/` per Section 4), reusing the same app
+  (same domain, same env vars) rather than provisioning a new one.
+- **Spaces credentials for the ingest app**: a **bucket-scoped** Spaces access key (Limited Access,
+  Read/Write, scoped to the `didiodidi` bucket only — created via the console, since scoped keys
+  can't be made via `doctl`/API) is used for `SPACES_KEY`/`SPACES_SECRET` on this app, separate from
+  the account-wide full-access key in `~/.s3cfg-didiodidi` used for local `s3cmd` uploads. Set as
+  encrypted env vars on the app's **service/function component itself** — App Platform's
+  env-var scoping is per-component, not inherited from app-level `envs:`, so this matters if the app
+  is ever recreated.
 
 ---
 
